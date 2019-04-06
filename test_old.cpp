@@ -176,7 +176,7 @@ void test() {
 		TLorenzVariable[k].cutmax = 100000;
 		TLorenzVariable[k].value = 0;
 	}
-	#include "cutsetup.h" //file with properties of each cut
+	#include "cutsetup_old.h" //file with properties of each cut
 
     for(int k=0; k < iCount; k++){
         if (IntVariable[k].cuttype == 4){
