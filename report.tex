@@ -1,0 +1,107 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[czech]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{txfonts}
+\usepackage{wasysym}
+\usepackage{eurosym}
+\usepackage[symbol*]{footmisc}
+\usepackage{mathtools}
+\usepackage{enumitem}
+\usepackage{epstopdf}
+\usepackage{tabularx,ragged2e,booktabs,caption}
+\usepackage{url}
+\author{Patrik Novotný}
+\title{SFG -  Studium rozpadů Higgsova bosonu na experimentu ATLAS v CERN pod vedením Daniela Scheiricha, PhD.}
+\begin{document}
+\maketitle
+\section*{Úvod}
+\par Cílem mně zadaného studentské fakultního grantu (SFG) bylo rozšírit si pracovní povědomí s ROOTem, frameworkem nejen pro HEP, a jazykem C++. V rámci SFG bylo mým konkrétním úkolem vytvořit unit test data pro analýzu rozpadu Higgsova bosonu H na dva tau leptony $\tau$. Unit testem míníme program, který sdílí s danou analýzou selekční kritéria (cuty) a plní pro jednotlivá selekční kritéria histogramy. Máme tedy informaci o cutflow. Cílem je získat datový soubor pro všechny větve leptonových rozpadových kanálů tak, že po nahraní nové verze analýzy do Git repozitáře se porovná cutflow analýzy s cutflow unit testu. Tomuto typu ověření se celkově říká CI, continuous integration. Unit test tohoto typu umožňuje rychlé a efektivní ošetření programátorských chyb a umožňuje se soustředit na fyzikální problematiku analýzy. Samotná analýza je popsána v \cite{DanovaSkupina} a při jejím popisu vycházíme z tohoto zdroje i v dalších částech textu.
+\section*{Teorie}
+\par Co se týče samotného procesu týče, tak větvící poměr pro proces H->$\tau^{+}\tau^{-}$ činí $6.3\pm3.6 \%$ dále pro $\tau^{-}$->$\mu$ $17.39\pm0.04 \%$ a pro $\tau^{-}$->$e^{-}$ $17.82\pm0.04 \%$ dle \cite{PDG}.
+\par Z prvního obrázku lze vidět, že z měření větvícího poměru (BR) i účinného průřezu $\sigma$, lze dále zpřesňovat hmotnost Higgsova bossonu i celého standardního modelu.
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{Higgs_BR_LM_RECT.eps}
+\caption{Hodnoty větvícího poměru (BR) včetně chyb jako funkce hmotnosti Higgsova bosonu dle \cite{HiggsBR}}
+\end{figure}
+\par $\tau^{-}$ lepton se elektroslabě rozpadá přes virtuální W boson, což je zobrazeno na Feynmanově diagramu níže. Stále přesnější měření vlastností Higgsova bosonu jednak potvrzují standardní model a zároveň umožňují i rozvoj nových teorií (SUSY např.), jelikož vlastnosti Higgsova bosonu (účinné průřezy $\sigma$, větvící poměry, životnost $\Gamma$ i hmotnost) jsou důležitými parametry pro celý vesmír. např. ovlivňují i stabilitu vakua.
+\begin{figure}[H]
+\centering
+\includegraphics[width=400pt]{Feynman_diagram_of_decay_of_tau_lepton.png}
+\caption{Feynmanův diagram běžných rozpadů $\tau$ \cite{TauWiki}}
+\end{figure}
+\par Zajímavé je, že s ohledem na svou hmotnost se $\tau$ lepton může rozpadat i na hadrony. Nicméně analýza se zabývá právě leptonovými rozpadovými kanály. Analýza se zabývá 10 regiony, jelikož zohledňujeme generaci každého z leptonů, to který je leading (dle transverzální hybnosti $p_{T}$) i druh triggeru: single-$\mu$ či -$e$ a di-lepton trigger.
+\section*{Realizace}
+\par Jak bylo řečeno výše, v rámci ROOTu spouštíme c++ script, ten je veřejně dostupný z \cite{code}. Každý z datových typů  (integer, unsigned integer, float a TLorenz vector) jsme vytvořili vlastní třídy, které definuje základní volání správné a špatné nahodné hodnoty, kterou generujeme pomocí ROOTu, dle několika možných vstup. Základními nastavení jsou standard, které generuje správné hodnoty v rozsahu od zadaného minima po maximum, minimum a maximu, což jsou nastavení, kde je zadána pouze jedna z mezí. Dalším nastavením je wrongright, což je nastavení, které generuje pouze jednu správnou hodnotu a jednu špatnou. Posledním možným nastavením je rightonly, které, jak název napovídá generuje pouze jednu správnou hodnotu a špatná je libovolná. Každý objekt reprezentující daný cut má poté ještě vlastnosti - instablity, která nám umožňuje definovat to, že objekt je (ne)stabilní, -fault, která nám umožňuje definovat, zda-li objekt má generovat přesně daný počet chybových dat nebo n, - IDstruct, což je složitější strukturovaný datový typ umožňující spojit daný objekt s jiným logickým výrazem OR a umožňuje tak sestavovat složitější cuty, typicky triggery.
+\par Samotný běh kanálu iterujeme přes všechny kanály. V každém kanále nadefinujeme vlastnosti objektů popsané výše. Pro nestandardní datové typy dojde k automatickému vytvoření mezí. Následně iteruje přes všechny objekty všech typů tak, že z n eventů je vždy m na pozici j*m chybných, pokud má daná proměnná nastavenou vlastnost fault = 1, v našem setupu pracujeme s n = 10000, m = 10, j = {1,2,3,...,1000}. Následně ještě pomocí ID structu přidáme do složených OR podmínek chybové členy do dalších objektů, tak by celková podmínka neprošla unit testem. U složených výrazů spojených výrazem AND tento problém odpadá. Na konci tedy získáme datový sample, který při průchodu naší analýzou/unit testem ztratím pro každou podmínku 10 eventů. Samotným výstupem je tzv. ntuple, což obsahuje přímo branches nebo trees, používané k ukládání TLorenz vektorů, které jsou dále dělené do leaves. Jedná se o specifické datové typy frameworku ROOTu.
+\section*{Závěr}
+\par Podařilo se nám vytvořit program, který generuje datové samply pro unit testování H->$\tau$ $\tau$ analýzy. Program je napsán obecně, tudíž snadnou úpravu jak proměnných, tak jejich hodnot. Jakožto generátor samplů pro unit testy může pracovat pro jakoukoliv analýzu postavenou na analýzy v ROOTu. Pro představu přikládáme tabulku s ukázkovým výstupem unit testu po užití samplu, konkrétně samplu muon-elektronového kanálu (řazeno dle transverzální hybnosti) se single muonovým triggerem.
+\begin{center}
+\begin{tabular}{ | p{6cm} | p{1cm}|} 
+\hline
+all events & 10000 \\ 
+\hline
+run number (datataking period) & 9990 \\ 
+\hline
+primary vertex & 9980 \\ 
+\hline
+leading lepton ID & 9970 \\ 
+\hline
+subleading lepton ID & 9960 \\ 
+\hline
+leading lepton ISO & 9950 \\ 
+\hline
+subleading lepton ISO & 9940 \\ 
+\hline
+hadronic tau decay veto & 9930 \\ 
+\hline
+trigger & 9910 \\ 
+\hline
+lepton opposite charge & 9900 \\ 
+\hline
+dilepton invariant mass & 9890 \\ 
+\hline
+leading jet pT & 9880 \\ 
+\hline
+missing tranverse energy & 9870 \\ 
+\hline
+leading tau decay visible momentum fraction & 9860 \\ 
+\hline
+sub-leading tau decay visible momentum fraction & 9850 \\ 
+\hline
+di-tau opening angle in pseudorapidity & 9840 \\ 
+\hline
+di-tau opening angle in 2D & 9830 \\ 
+\hline
+orthogonality to HWW decay channel (higgs mass estimate) & 9820 \\ 
+\hline
+successful reconstruction of higgs mass & 9810 \\ 
+\hline
+b-jet veto & 9800 \\ 
+\hline
+\end{tabular}
+\end{center}
+Výsledky pro všechny kanály vychází tak, jak byly zamýšleny. Věříme, že tento velmi automatizovaný generátor samplů bude užitečný řadě skupiny pracující na MFF, pokud o něj projeví zájem.
+\renewcommand\refname{Použitá literatura}
+\begin{thebibliography}{}
+\bibitem{HiggsBR}
+TWiki. SM Higgs Branching Ratios and Total Decay Widths [online][cit. 2019-10-08]. Dostupné z:
+\url{https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR#SM_Higgs_Branching_Ratios_and_To}
+\bibitem{TauWiki}
+Wikipedia. Tau (particle) [online][cit. 2019-10-08]. Dostupné z:
+\url{https://en.wikipedia.org/wiki/Tau_(particle)#/media/File:Feynman_diagram_of_decay_of_tau_lepton.svg}
+\bibitem{PDG}
+Particle Physics Booklet 2018 (pdf) [online][cit. 2019-14-09]. Dostupné z:
+\url{http://pdg.lbl.gov/2018/download/db2018.pdf}
+\bibitem{DanovaSkupina}
+Cross-section measurements of the Higgs boson decaying into a pair of $\tau$-leptons in proton-proton collisions at s=$\sqrt{13}$ TeV with the ATLAS detector [online][cit. 2019-14-09]. Dostupné z:
+\url{https://journals.aps.org/prd/abstract/10.1103/PhysRevD.99.072001}
+\bibitem{code}
+Github s kodem [online][cit. 2019-29-09]. Dostupné z:
+\url{https://github.com/PatriktheAstronomer/Higgs/blob/master/test.cpp}
+\end{thebibliography}
+\end{document}
